@@ -1,0 +1,19 @@
+MACHINEMY - COMO INICIAR
+
+O erro ERR_CONNECTION_REFUSED acontece quando o servidor local nao esta rodando.
+
+Opcao mais facil:
+1. Dê dois cliques em INICIAR_MACHINEMY.bat
+2. Espere aparecer que o Vite esta pronto.
+3. Abra http://localhost:5173/
+4. A rota de entrada e http://localhost:5173/entrada
+
+Opcao pelo terminal:
+1. Abra a pasta do projeto no terminal.
+2. Na primeira vez, rode: npm install
+3. Depois rode: npm run dev
+4. Mantenha o terminal aberto enquanto usa o sistema.
+
+Login de teste:
+E-mail: admin@machinemy.com
+Senha: 123456

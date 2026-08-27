@@ -1,0 +1,20 @@
+MACHINEMY - PUBLICAÇÃO NO GITHUB PAGES
+
+Este projeto já está preparado para o repositório:
+Machinemy
+
+1. Extraia este ZIP.
+2. No GitHub, abra o repositório Machinemy.
+3. Clique em 'uploading an existing file'.
+4. Envie TODO o conteúdo desta pasta (package.json, src, public, .github, etc.).
+   Não envie a pasta externa contendo tudo: os arquivos devem ficar na raiz do repositório.
+5. Faça o commit em 'Commit changes'.
+6. Vá em Settings > Pages.
+7. Em Build and deployment > Source, selecione 'GitHub Actions'.
+8. Vá em Actions e aguarde 'Deploy Machinemy to GitHub Pages' ficar verde.
+9. Depois acesse:
+   https://lucasreisteixeira-bit.github.io/Machinemy/
+
+Observação: as rotas usam HashRouter para funcionar no GitHub Pages.
+Exemplo: Produtos aparecerá como .../Machinemy/#/produtos
+Isso evita erro 404 ao atualizar a página.
