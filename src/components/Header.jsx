@@ -1,27 +1,19 @@
 import Logo from './Logo'
 import SearchBar from './SearchBar'
-import IconButton from './IconButton'
-import { SettingsIcon } from './icons/SidebarIcons'
+import { useInventory } from '../context/InventoryContext'
 import './Header.css'
 
 export default function Header() {
+  const { theme, setTheme } = useInventory()
+  const dark = theme === 'dark'
   return (
     <header className="dashboard-header">
-      <div className="dashboard-header__logo">
-        <Logo variant="header" showTagline={false} />
-      </div>
-
-      <div className="dashboard-header__search">
-        <SearchBar />
-      </div>
-
+      <div className="dashboard-header__logo"><Logo variant="header" /></div>
+      <div className="dashboard-header__search"><SearchBar /></div>
       <div className="dashboard-header__actions">
-        <IconButton
-          icon={<SettingsIcon />}
-          label="Configurações"
-          onClick={() => alert('Configurações em breve.')}
-          className="dashboard-header__settings"
-        />
+        <button className="theme-button" onClick={() => setTheme(dark ? 'light' : 'dark')} aria-label="Alternar tema">
+          <span className="theme-button__icon">{dark ? '☀' : '☾'}</span>
+        </button>
       </div>
     </header>
   )

@@ -1,171 +1,23 @@
 import { useMemo, useRef, useState } from 'react'
-import { BoxIcon, SearchIcon } from '../components/icons/SidebarIcons'
-import '../styles/products.css'
+import { useInventory } from '../context/InventoryContext'
+import '../styles/inventory-pages.css'
 
-function SvgIcon({ type, size = 20 }) {
-  const props = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', 'aria-hidden': true }
-  const common = { stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }
-  if (type === 'filter') return <svg {...props}><path {...common} d="M4 5h16l-6 7v5l-4 2v-7L4 5Z" /></svg>
-  if (type === 'plus') return <svg {...props}><path {...common} d="M12 5v14M5 12h14" /></svg>
-  if (type === 'chevron') return <svg {...props}><path {...common} d="m8 10 4 4 4-4" /></svg>
-  if (type === 'more') return <svg {...props}><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/></svg>
-  if (type === 'left') return <svg {...props}><path {...common} d="m14 7-5 5 5 5" /></svg>
-  if (type === 'right') return <svg {...props}><path {...common} d="m10 7 5 5-5 5" /></svg>
-  if (type === 'close') return <svg {...props}><path {...common} d="m6 6 12 12M18 6 6 18" /></svg>
-  if (type === 'image') return <svg {...props}><rect {...common} x="3" y="5" width="18" height="14" rx="2" /><circle {...common} cx="8.5" cy="10" r="1.5" /><path {...common} d="m21 15-5-5L5 19" /></svg>
-  if (type === 'trash') return <svg {...props}><path {...common} d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13M10 11v5M14 11v5" /></svg>
-  return null
-}
+const blank = { name:'', brand:'', code:'', category:'Alimentos', stock:'', minStock:'', expiry:'', status:'Ativo', image:'' }
 
-export default function Products() {
-  const [products, setProducts] = useState([])
-  const [query, setQuery] = useState('')
-  const [category, setCategory] = useState('Todas as categorias')
-  const [status, setStatus] = useState('Todos os status')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [openMenuId, setOpenMenuId] = useState(null)
-  const [imageTargetId, setImageTargetId] = useState(null)
-  const imageInputRef = useRef(null)
-  const [form, setForm] = useState({ name: '', brand: '', code: '', category: 'Cereais', stock: '', minStock: '', expiry: '', status: 'Ativo' })
-
-  const filtered = useMemo(() => products.filter((product) => {
-    const q = query.trim().toLowerCase()
-    const matchesQuery = !q || [product.name, product.code, product.category, product.brand].some(v => String(v).toLowerCase().includes(q))
-    const matchesCategory = category === 'Todas as categorias' || product.category === category
-    const matchesStatus = status === 'Todos os status' || product.status === status
-    return matchesQuery && matchesCategory && matchesStatus
-  }), [products, query, category, status])
-
-  const categories = [...new Set(products.map(p => p.category))]
-
-  const handleDelete = (product) => {
-    const confirmed = window.confirm(`Excluir o produto \"${product.name}\"? Esta ação não pode ser desfeita.`)
-    if (!confirmed) return
-    setProducts(prev => prev.filter(item => item.id !== product.id))
-    setOpenMenuId(null)
-  }
-
-  const requestImageChange = (productId) => {
-    setImageTargetId(productId)
-    setOpenMenuId(null)
-    imageInputRef.current?.click()
-  }
-
-  const handleImageChange = (e) => {
-    const file = e.target.files?.[0]
-    if (!file || !imageTargetId) return
-    if (!file.type.startsWith('image/')) {
-      window.alert('Selecione um arquivo de imagem válido.')
-      e.target.value = ''
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => {
-      setProducts(prev => prev.map(item => item.id === imageTargetId ? { ...item, image: reader.result } : item))
-      setImageTargetId(null)
-      e.target.value = ''
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!form.name.trim() || !form.code.trim()) return
-    setProducts(prev => [...prev, { ...form, id: Date.now(), stock: Number(form.stock || 0), minStock: Number(form.minStock || 0) }])
-    setModalOpen(false)
-    setForm({ name: '', brand: '', code: '', category: 'Cereais', stock: '', minStock: '', expiry: '', status: 'Ativo' })
-  }
-
-  return (
-    <section className="products-page">
-      <div className="page-heading products-page__heading">
-        <div className="page-heading__left">
-          <div className="page-heading__icon page-heading__icon--box"><BoxIcon /></div>
-          <div>
-            <h1>Produtos</h1>
-            <p>Veja e gerencie todos os produtos cadastrados no estoque.</p>
-          </div>
-        </div>
-        <div className="products-page__top-actions">
-          <button className="btn btn--outline" type="button"><SvgIcon type="filter" />Filtros</button>
-          <button className="btn btn--primary" type="button" onClick={() => setModalOpen(true)}><SvgIcon type="plus" />Novo produto</button>
-        </div>
-      </div>
-
-      <div className="products-page__filters">
-        <label className="products-search"><SearchIcon /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar produto por nome, código ou categoria..." /></label>
-        <label className="select-control"><select value={category} onChange={e => setCategory(e.target.value)}><option>Todas as categorias</option>{categories.map(c => <option key={c}>{c}</option>)}</select><SvgIcon type="chevron" /></label>
-        <label className="select-control"><select value={status} onChange={e => setStatus(e.target.value)}><option>Todos os status</option><option>Ativo</option><option>Inativo</option></select><SvgIcon type="chevron" /></label>
-      </div>
-
-      <div className="products-table-card">
-        <div className="products-table__head">
-          <span>Produto</span><span>Código</span><span>Categoria</span><span>Estoque atual</span><span>Estoque mínimo</span><span>Validade</span><span>Status</span><span>Ações</span>
-        </div>
-
-        {products.length === 0 ? (
-          <div className="products-empty">
-            <div className="products-empty__icon"><BoxIcon /></div>
-            <strong>Nenhum produto cadastrado ainda.</strong>
-            <p>Clique em “Novo produto” para cadastrar o primeiro item.</p>
-            <button className="btn btn--primary products-empty__button" type="button" onClick={() => setModalOpen(true)}><SvgIcon type="plus" />Novo produto</button>
-          </div>
-        ) : filtered.length > 0 ? (
-          <>
-            {filtered.map(product => (
-              <div className="product-row" key={product.id}>
-                <div className="product-cell product-cell--name">
-                  <div className={`product-thumb ${product.image ? 'product-thumb--image' : ''}`}>
-                    {product.image ? <img src={product.image} alt={`Imagem de ${product.name}`} /> : <BoxIcon />}
-                  </div>
-                  <div><strong>{product.name}</strong><span>Marca: {product.brand || '—'}</span></div>
-                </div>
-                <div className="product-cell">{product.code}</div>
-                <div className="product-cell">{product.category}</div>
-                <div className="product-cell product-cell--stock">{product.stock} un</div>
-                <div className="product-cell">{product.minStock} un</div>
-                <div className="product-cell">{product.expiry || '—'}</div>
-                <div className="product-cell"><span className={`status-badge ${product.status === 'Ativo' ? 'status-badge--active' : ''}`}>{product.status}</span></div>
-                <div className="product-cell product-cell--actions">
-                  <div className="product-actions">
-                    <button className="product-actions__trigger" aria-label={`Ações de ${product.name}`} aria-expanded={openMenuId === product.id} onClick={() => setOpenMenuId(openMenuId === product.id ? null : product.id)}><SvgIcon type="more" /></button>
-                    {openMenuId === product.id && (
-                      <div className="product-actions__menu">
-                        <button type="button" onClick={() => requestImageChange(product.id)}><SvgIcon type="image" size={18} /><span>Alterar imagem</span></button>
-                        <button type="button" className="product-actions__delete" onClick={() => handleDelete(product)}><SvgIcon type="trash" size={18} /><span>Excluir produto</span></button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-            <div className="products-pagination"><span>Mostrando {filtered.length} de {products.length} produto{products.length === 1 ? '' : 's'}</span><div><button><SvgIcon type="left" /></button><button className="is-current">1</button><button><SvgIcon type="right" /></button></div></div>
-          </>
-        ) : (
-          <div className="products-no-results">Nenhum produto encontrado com os filtros atuais.</div>
-        )}
-      </div>
-
-      <input ref={imageInputRef} className="visually-hidden-file" type="file" accept="image/*" onChange={handleImageChange} />
-
-      {modalOpen && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && setModalOpen(false)}>
-          <div className="product-modal" role="dialog" aria-modal="true" aria-labelledby="new-product-title">
-            <div className="product-modal__header"><div><h2 id="new-product-title">Novo produto</h2><p>Cadastre um item no estoque.</p></div><button onClick={() => setModalOpen(false)} aria-label="Fechar"><SvgIcon type="close" /></button></div>
-            <form onSubmit={handleSubmit} className="product-modal__form">
-              <label>Nome<input required value={form.name} onChange={e => setForm({...form, name:e.target.value})} /></label>
-              <label>Marca<input value={form.brand} onChange={e => setForm({...form, brand:e.target.value})} /></label>
-              <label>Código<input required value={form.code} onChange={e => setForm({...form, code:e.target.value})} /></label>
-              <label>Categoria<input value={form.category} onChange={e => setForm({...form, category:e.target.value})} /></label>
-              <label>Estoque atual<input type="number" min="0" value={form.stock} onChange={e => setForm({...form, stock:e.target.value})} /></label>
-              <label>Estoque mínimo<input type="number" min="0" value={form.minStock} onChange={e => setForm({...form, minStock:e.target.value})} /></label>
-              <label>Validade<input placeholder="dd/mm/aaaa" value={form.expiry} onChange={e => setForm({...form, expiry:e.target.value})} /></label>
-              <label>Status<select value={form.status} onChange={e => setForm({...form, status:e.target.value})}><option>Ativo</option><option>Inativo</option></select></label>
-              <div className="product-modal__actions"><button type="button" className="btn btn--outline" onClick={() => setModalOpen(false)}>Cancelar</button><button className="btn btn--primary" type="submit">Cadastrar produto</button></div>
-            </form>
-          </div>
-        </div>
-      )}
-    </section>
-  )
+export default function Products(){
+  const {products,addProduct,deleteProduct,updateProduct}=useInventory()
+  const [query,setQuery]=useState(''), [category,setCategory]=useState('Todas'), [status,setStatus]=useState('Todos'), [open,setOpen]=useState(false), [form,setForm]=useState(blank), [menu,setMenu]=useState(null)
+  const fileRef=useRef(null), selectedId=useRef(null)
+  const filtered=useMemo(()=>products.filter(p=>{
+    const q=query.toLowerCase(); const matches=!q||[p.name,p.code,p.category,p.brand].some(v=>String(v||'').toLowerCase().includes(q));
+    return matches&&(category==='Todas'||p.category===category)&&(status==='Todos'||p.status===status)
+  }),[products,query,category,status])
+  const submit=e=>{e.preventDefault(); if(!form.name||!form.code)return; addProduct({...form,stock:Number(form.stock||0),minStock:Number(form.minStock||0)}); setForm(blank);setOpen(false)}
+  const imageChange=e=>{const f=e.target.files?.[0]; if(!f)return; const r=new FileReader(); r.onload=()=>updateProduct(selectedId.current,{image:r.result}); r.readAsDataURL(f);e.target.value=''}
+  return <div className="page-shell"><div className="page-heading"><div><h1>▣ &nbsp; Produtos</h1><p>Veja e gerencie todos os produtos cadastrados no estoque.</p></div><div className="heading-actions"><button className="outline-btn">⌁ &nbsp; Filtros</button><button className="primary-btn" onClick={()=>setOpen(true)}>＋ Novo produto</button></div></div>
+    <div className="filters-row"><div className="search-field">⌕ <input placeholder="Buscar produto por nome, código ou categoria..." value={query} onChange={e=>setQuery(e.target.value)}/></div><select value={category} onChange={e=>setCategory(e.target.value)}><option>Todas</option>{[...new Set(products.map(p=>p.category))].map(c=><option key={c}>{c}</option>)}</select><select value={status} onChange={e=>setStatus(e.target.value)}><option>Todos</option><option>Ativo</option><option>Inativo</option></select></div>
+    <section className="panel products-table"><div className="table-scroll"><table className="data-table"><thead><tr><th>Produto</th><th>Código</th><th>Categoria</th><th>Estoque atual</th><th>Estoque mínimo</th><th>Validade</th><th>Status</th><th>Ações</th></tr></thead><tbody>{filtered.length?filtered.map(p=><tr key={p.id}><td><div className="product-cell">{p.image?<img src={p.image} alt=""/>:<span className="product-placeholder">▣</span>}<div><b>{p.name}</b><small>Marca: {p.brand||'—'}</small></div></div></td><td>{p.code}</td><td>{p.category}</td><td><b className={p.stock<p.minStock?'negative':'positive'}>{p.stock} un</b></td><td>{p.minStock} un</td><td>{p.expiry?new Date(`${p.expiry}T00:00:00`).toLocaleDateString('pt-BR'):'—'}</td><td><span className={`badge ${p.status==='Ativo'?'badge--green':'badge--gray'}`}>{p.status}</span></td><td className="actions-cell"><button onClick={()=>setMenu(menu===p.id?null:p.id)}>⋮</button>{menu===p.id&&<div className="kebab-menu"><button onClick={()=>{selectedId.current=p.id;fileRef.current?.click();setMenu(null)}}>Alterar imagem</button><button className="danger" onClick={()=>{if(confirm(`Excluir ${p.name}?`))deleteProduct(p.id);setMenu(null)}}>Excluir produto</button></div>}</td></tr>):<tr><td colSpan="8"><div className="empty-state"><span>▣</span><h3>Nenhum produto cadastrado ainda.</h3><p>Clique em “Novo produto” para cadastrar o primeiro item.</p><button className="primary-btn" onClick={()=>setOpen(true)}>＋ Novo produto</button></div></td></tr>}</tbody></table></div></section>
+    <input ref={fileRef} type="file" accept="image/*" hidden onChange={imageChange}/>
+    {open&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setOpen(false)}}><form className="modal-card" onSubmit={submit}><div className="modal-head"><h2>Novo produto</h2><button type="button" onClick={()=>setOpen(false)}>×</button></div><div className="form-grid form-grid--2"><label>Nome<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/></label><label>Marca<input value={form.brand} onChange={e=>setForm({...form,brand:e.target.value})}/></label><label>Código<input value={form.code} onChange={e=>setForm({...form,code:e.target.value})}/></label><label>Categoria<select value={form.category} onChange={e=>setForm({...form,category:e.target.value})}><option>Alimentos</option><option>Bebidas</option><option>Higiene</option><option>Limpeza</option><option>Outros</option></select></label><label>Estoque atual<input type="number" value={form.stock} onChange={e=>setForm({...form,stock:e.target.value})}/></label><label>Estoque mínimo<input type="number" value={form.minStock} onChange={e=>setForm({...form,minStock:e.target.value})}/></label><label>Validade<input type="date" value={form.expiry} onChange={e=>setForm({...form,expiry:e.target.value})}/></label><label>Status<select value={form.status} onChange={e=>setForm({...form,status:e.target.value})}><option>Ativo</option><option>Inativo</option></select></label></div><button className="primary-btn modal-submit">Cadastrar produto</button></form></div>}
+  </div>
 }

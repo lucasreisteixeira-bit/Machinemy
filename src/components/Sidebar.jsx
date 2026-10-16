@@ -13,5 +13,13 @@ const menuItems = [
 ]
 
 export default function Sidebar() {
-  return <aside className="sidebar"><nav className="sidebar__nav">{menuItems.map(item=>{const Icon=item.icon;return <NavLink key={item.to} to={item.to} className={({isActive})=>`sidebar__item ${isActive?'sidebar__item--active':''}`} end={item.to==='/dashboard'}><span className={`sidebar__icon ${item.iconColor?`sidebar__icon--${item.iconColor}`:''}`}><Icon/></span><span className="sidebar__text"><span className="sidebar__label">{item.label}</span>{item.subtitle&&<span className="sidebar__subtitle">{item.subtitle}</span>}</span></NavLink>})}</nav></aside>
+  return <aside className="sidebar"><nav className="sidebar__nav">
+    {menuItems.map((item) => {
+      const Icon = item.icon
+      return <NavLink key={item.to} to={item.to} className={({ isActive }) => `sidebar__item ${isActive ? 'sidebar__item--active' : ''}`} end={item.to === '/dashboard'}>
+        <span className={`sidebar__icon ${item.iconColor ? `sidebar__icon--${item.iconColor}` : ''}`}><Icon /></span>
+        <span className="sidebar__text"><span className="sidebar__label">{item.label}</span>{item.subtitle && <span className="sidebar__subtitle">{item.subtitle}</span>}</span>
+      </NavLink>
+    })}
+  </nav></aside>
 }
