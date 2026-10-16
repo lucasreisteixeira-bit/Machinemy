@@ -4,9 +4,5 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   base: '/Machinemy/',
-  server: {
-    port: 5173,
-    strictPort: true,
-    host: 'localhost',
-  },
+  server: { port: 5173 },
 })
