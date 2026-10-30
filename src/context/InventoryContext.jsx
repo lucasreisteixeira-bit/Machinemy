@@ -1,69 +1,383 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { supabase } from '../lib/supabase'
 
 const InventoryContext = createContext(null)
 
-const seedProducts = [
-  { id: 1, name: 'Arroz Tipo 1 (5kg)', brand: 'Camil', code: '7891234567890', category: 'Alimentos', stock: 16, minStock: 50, expiry: '2024-12-31', status: 'Ativo', image: '' },
-  { id: 2, name: 'Óleo de Soja (900ml)', brand: 'Soya', code: '789100000002', category: 'Alimentos', stock: 30, minStock: 20, expiry: '2026-06-05', status: 'Ativo', image: '' },
-  { id: 3, name: 'Leite Integral (1L)', brand: 'Italac', code: '789100000003', category: 'Bebidas', stock: 45, minStock: 20, expiry: '2026-06-08', status: 'Ativo', image: '' },
-  { id: 4, name: 'Feijão Carioca (1kg)', brand: 'Kicaldo', code: '789100000004', category: 'Alimentos', stock: 12, minStock: 30, expiry: '2026-11-10', status: 'Ativo', image: '' },
-  { id: 5, name: 'Farinha de Trigo (1kg)', brand: 'Dona Benta', code: '789100000005', category: 'Alimentos', stock: 0, minStock: 10, expiry: '2024-05-20', status: 'Ativo', image: '' },
-  { id: 6, name: 'Açúcar Refinado (1kg)', brand: 'União', code: '789100000006', category: 'Alimentos', stock: 60, minStock: 20, expiry: '2027-01-10', status: 'Ativo', image: '' },
-]
-
-const seedEntries = [
-  { id: 101, productId: 1, product: 'Arroz Tipo 1 (5kg)', quantity: 100, supplier: 'Distribuidora Bom Preço', lot: 'ARZ290524', expiry: '29/11/2024', value: 550, date: '29/05/2024 08:45' },
-  { id: 102, productId: 4, product: 'Feijão Carioca (1kg)', quantity: 80, supplier: 'Distribuidora Bom Preço', lot: 'FEJ290524', expiry: '10/01/2025', value: 240, date: '29/05/2024 08:30' },
-  { id: 103, productId: 2, product: 'Óleo de Soja (900ml)', quantity: 60, supplier: 'Alimentos Sul', lot: 'OLE280524', expiry: '28/02/2025', value: 360, date: '28/05/2024 17:20' },
-  { id: 104, productId: 3, product: 'Leite Integral (1L)', quantity: 120, supplier: 'Laticínios União', lot: 'LEI280524', expiry: '15/06/2024', value: 372, date: '28/05/2024 14:10' },
-  { id: 105, productId: 5, product: 'Farinha de Trigo (1kg)', quantity: 70, supplier: 'Moinho Real', lot: 'FAR270524', expiry: '27/10/2024', value: 175, date: '27/05/2024 09:15' },
-]
-
-const seedExits = [
-  { id: 201, productId: 1, product: 'Arroz Tipo 1 (5kg)', quantity: 50, reason: 'Venda no balcão', responsible: 'João Silva', value: 275, date: '29/05/2024 15:30' },
-  { id: 202, productId: 2, product: 'Óleo de Soja (900ml)', quantity: 30, reason: 'Pedido #1254', responsible: 'Maria Oliveira', value: 180, date: '29/05/2024 14:10' },
-  { id: 203, productId: 3, product: 'Leite Integral (1L)', quantity: 20, reason: 'Venda no balcão', responsible: 'João Silva', value: 60, date: '29/05/2024 12:45' },
-  { id: 204, productId: 4, product: 'Feijão Carioca (1kg)', quantity: 25, reason: 'Transferência para loja 2', responsible: 'Maria Oliveira', value: 87.5, date: '28/05/2024 17:20' },
-  { id: 205, productId: 5, product: 'Farinha de Trigo (1kg)', quantity: 40, reason: 'Venda no balcão', responsible: 'Carlos Santos', value: 92, date: '28/05/2024 16:05' },
-]
-
-function read(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
-  }
+const blankProfile = {
+  name: '',
+  email: '',
+  phone: '',
+  role: 'Gerente de Estoque',
+  memberSince: '',
+  status: 'Ativa',
 }
 
+const mapProduct = (row) => ({
+  id: row.id,
+  name: row.name,
+  brand: row.brand || '',
+  code: row.code || '',
+  category: row.category || 'Outros',
+  stock: Number(row.stock || 0),
+  minStock: Number(row.minimum_stock || 0),
+  expiry: row.expiry_date || '',
+  status: row.status || 'Ativo',
+  image: row.image_url || '',
+  createdAt: row.created_at,
+})
+
+const mapEntry = (row) => ({
+  id: row.id,
+  productId: row.product_id,
+  product: row.product_name,
+  quantity: Number(row.quantity || 0),
+  supplier: row.supplier || '',
+  lot: row.lot || '',
+  expiry: row.expiry_date ? new Date(`${row.expiry_date}T12:00:00`).toLocaleDateString('pt-BR') : '—',
+  unitValue: Number(row.unit_value || 0),
+  value: Number(row.unit_value || 0) * Number(row.quantity || 0),
+  date: new Date(row.entry_date).toLocaleDateString('pt-BR'),
+  notes: row.notes || '',
+  createdAt: row.created_at,
+})
+
+const mapExit = (row) => ({
+  id: row.id,
+  productId: row.product_id,
+  product: row.product_name,
+  quantity: Number(row.quantity || 0),
+  responsible: row.responsible || '',
+  reason: row.reason || '',
+  unitValue: Number(row.unit_value || 0),
+  value: Number(row.unit_value || 0) * Number(row.quantity || 0),
+  date: new Date(row.exit_date).toLocaleDateString('pt-BR'),
+  notes: row.notes || '',
+  createdAt: row.created_at,
+})
+
 export function InventoryProvider({ children }) {
-  const [products, setProducts] = useState(() => read('machinemy_products', seedProducts))
-  const [entries, setEntries] = useState(() => read('machinemy_entries', seedEntries))
-  const [exits, setExits] = useState(() => read('machinemy_exits', seedExits))
+  const [session, setSession] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [dataLoading, setDataLoading] = useState(false)
+  const [products, setProducts] = useState([])
+  const [entries, setEntries] = useState([])
+  const [exits, setExits] = useState([])
+  const [profile, setProfileState] = useState(blankProfile)
   const [theme, setTheme] = useState(() => localStorage.getItem('machinemy_theme') || 'light')
 
-  useEffect(() => localStorage.setItem('machinemy_products', JSON.stringify(products)), [products])
-  useEffect(() => localStorage.setItem('machinemy_entries', JSON.stringify(entries)), [entries])
-  useEffect(() => localStorage.setItem('machinemy_exits', JSON.stringify(exits)), [exits])
   useEffect(() => {
     localStorage.setItem('machinemy_theme', theme)
     document.documentElement.dataset.theme = theme
   }, [theme])
 
-  const addProduct = (product) => setProducts((prev) => [...prev, { ...product, id: Date.now() }])
-  const deleteProduct = (id) => setProducts((prev) => prev.filter((p) => p.id !== id))
-  const updateProduct = (id, patch) => setProducts((prev) => prev.map((p) => p.id === id ? { ...p, ...patch } : p))
+  const loadProducts = useCallback(async () => {
+    const { data, error } = await supabase.from('products').select('*').order('created_at', { ascending: false })
+    if (error) throw error
+    setProducts((data || []).map(mapProduct))
+    return data
+  }, [])
 
-  const addEntry = (entry) => {
-    const id = Date.now()
-    setEntries((prev) => [{ ...entry, id }, ...prev])
-    setProducts((prev) => prev.map((p) => p.id === Number(entry.productId) ? { ...p, stock: Number(p.stock) + Number(entry.quantity) } : p))
+  const loadEntries = useCallback(async () => {
+    const { data, error } = await supabase.from('entries').select('*').order('entry_date', { ascending: false })
+    if (error) throw error
+    setEntries((data || []).map(mapEntry))
+    return data
+  }, [])
+
+  const loadExits = useCallback(async () => {
+    const { data, error } = await supabase.from('exits').select('*').order('exit_date', { ascending: false })
+    if (error) throw error
+    setExits((data || []).map(mapExit))
+    return data
+  }, [])
+
+  const loadProfile = useCallback(async (user) => {
+    if (!user) {
+      setProfileState(blankProfile)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (error) throw error
+
+    if (!data) {
+      const fresh = {
+        user_id: user.id,
+        email: user.email || '',
+        name: user.user_metadata?.name || '',
+        role: 'Gerente de Estoque',
+      }
+      const { data: created, error: createError } = await supabase
+        .from('profiles')
+        .insert(fresh)
+        .select('*')
+        .single()
+      if (createError) throw createError
+      setProfileState({
+        name: created.name || '',
+        email: created.email || user.email || '',
+        phone: created.phone || '',
+        role: created.role || 'Gerente de Estoque',
+        memberSince: created.created_at?.slice(0, 10) || '',
+        status: 'Ativa',
+      })
+      return
+    }
+
+    setProfileState({
+      name: data.name || '',
+      email: data.email || user.email || '',
+      phone: data.phone || '',
+      role: data.role || 'Gerente de Estoque',
+      memberSince: data.created_at?.slice(0, 10) || '',
+      status: 'Ativa',
+    })
+  }, [])
+
+  const loadAll = useCallback(async (user) => {
+    if (!user) {
+      setProducts([])
+      setEntries([])
+      setExits([])
+      setProfileState(blankProfile)
+      return
+    }
+    setDataLoading(true)
+    try {
+      await Promise.all([loadProducts(), loadEntries(), loadExits(), loadProfile(user)])
+    } finally {
+      setDataLoading(false)
+    }
+  }, [loadProducts, loadEntries, loadExits, loadProfile])
+
+  useEffect(() => {
+    let mounted = true
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return
+      const nextSession = data.session || null
+      setSession(nextSession)
+      setAuthLoading(false)
+      if (nextSession?.user) loadAll(nextSession.user).catch(console.error)
+    })
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession)
+      setAuthLoading(false)
+      if (nextSession?.user) loadAll(nextSession.user).catch(console.error)
+      else {
+        setProducts([])
+        setEntries([])
+        setExits([])
+        setProfileState(blankProfile)
+      }
+    })
+
+    return () => {
+      mounted = false
+      listener.subscription.unsubscribe()
+    }
+  }, [loadAll])
+
+  const signIn = async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw error
+    return data
   }
 
-  const addExit = (exit) => {
-    const id = Date.now()
-    setExits((prev) => [{ ...exit, id }, ...prev])
-    setProducts((prev) => prev.map((p) => p.id === Number(exit.productId) ? { ...p, stock: Math.max(0, Number(p.stock) - Number(exit.quantity)) } : p))
+  const signUp = async (email, password, name = '') => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
+    })
+    if (error) throw error
+    return data
+  }
+
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut()
+    if (error) throw error
+  }
+
+  const addProduct = async (product) => {
+    const user = session?.user
+    if (!user) throw new Error('Faça login para cadastrar produtos.')
+    const payload = {
+      name: product.name,
+      brand: product.brand || null,
+      code: product.code || null,
+      category: product.category,
+      stock: Number(product.stock || 0),
+      minimum_stock: Number(product.minStock || 0),
+      expiry_date: product.expiry || null,
+      status: product.status || 'Ativo',
+      image_url: product.image || null,
+      created_by: user.id,
+      updated_at: new Date().toISOString(),
+    }
+    const { data, error } = await supabase.from('products').insert(payload).select('*').single()
+    if (error) throw error
+    const mapped = mapProduct(data)
+    setProducts((prev) => [mapped, ...prev])
+    return mapped
+  }
+
+  const updateProduct = async (id, patch) => {
+    const payload = {}
+    if ('name' in patch) payload.name = patch.name
+    if ('brand' in patch) payload.brand = patch.brand || null
+    if ('code' in patch) payload.code = patch.code || null
+    if ('category' in patch) payload.category = patch.category
+    if ('stock' in patch) payload.stock = Number(patch.stock || 0)
+    if ('minStock' in patch) payload.minimum_stock = Number(patch.minStock || 0)
+    if ('expiry' in patch) payload.expiry_date = patch.expiry || null
+    if ('status' in patch) payload.status = patch.status
+    if ('image' in patch) payload.image_url = patch.image || null
+    payload.updated_at = new Date().toISOString()
+
+    const { data, error } = await supabase.from('products').update(payload).eq('id', id).select('*').single()
+    if (error) throw error
+    const mapped = mapProduct(data)
+    setProducts((prev) => prev.map((p) => p.id === id ? mapped : p))
+    return mapped
+  }
+
+  const deleteProduct = async (id) => {
+    const product = products.find((p) => p.id === id)
+    const { error } = await supabase.from('products').delete().eq('id', id)
+    if (error) throw error
+    setProducts((prev) => prev.filter((p) => p.id !== id))
+
+    if (product?.image?.includes('/storage/v1/object/public/product-images/')) {
+      const path = decodeURIComponent(product.image.split('/storage/v1/object/public/product-images/')[1] || '')
+      if (path) await supabase.storage.from('product-images').remove([path])
+    }
+  }
+
+  const uploadProductImage = async (id, file) => {
+    if (!session?.user) throw new Error('Faça login para alterar imagens.')
+    if (!file?.type?.startsWith('image/')) throw new Error('Selecione uma imagem válida.')
+    if (file.size > 5 * 1024 * 1024) throw new Error('A imagem deve ter no máximo 5 MB.')
+
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const safeExt = ['jpg', 'jpeg', 'png', 'webp'].includes(ext) ? ext : 'jpg'
+    const path = `${session.user.id}/${id}-${Date.now()}.${safeExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('product-images')
+      .upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type })
+    if (uploadError) throw uploadError
+
+    const { data } = supabase.storage.from('product-images').getPublicUrl(path)
+    return updateProduct(id, { image: data.publicUrl })
+  }
+
+  const addEntry = async (entry) => {
+    const product = products.find((p) => p.id === Number(entry.productId))
+    if (!product) throw new Error('Produto não encontrado.')
+    const quantity = Number(entry.quantity || 0)
+    if (quantity <= 0) throw new Error('Quantidade inválida.')
+
+    const entryDate = entry.date ? new Date(`${entry.date}T12:00:00`).toISOString() : new Date().toISOString()
+    const payload = {
+      product_id: product.id,
+      product_name: product.name,
+      quantity,
+      supplier: entry.supplier || null,
+      lot: entry.lot || null,
+      expiry_date: entry.expiry || null,
+      unit_value: Number(entry.unitValue || 0),
+      entry_date: entryDate,
+      notes: entry.notes || null,
+      created_by: session?.user?.id || null,
+    }
+
+    const { data: created, error: insertError } = await supabase.from('entries').insert(payload).select('*').single()
+    if (insertError) throw insertError
+
+    try {
+      await updateProduct(product.id, { stock: product.stock + quantity })
+    } catch (error) {
+      await supabase.from('entries').delete().eq('id', created.id)
+      throw error
+    }
+
+    const mapped = mapEntry(created)
+    setEntries((prev) => [mapped, ...prev])
+    return mapped
+  }
+
+  const addExit = async (exit) => {
+    const product = products.find((p) => p.id === Number(exit.productId))
+    if (!product) throw new Error('Produto não encontrado.')
+    const quantity = Number(exit.quantity || 0)
+    if (quantity <= 0) throw new Error('Quantidade inválida.')
+    if (quantity > product.stock) throw new Error('Quantidade maior que o estoque disponível.')
+
+    const exitDate = exit.date ? new Date(`${exit.date}T12:00:00`).toISOString() : new Date().toISOString()
+    const payload = {
+      product_id: product.id,
+      product_name: product.name,
+      quantity,
+      responsible: exit.responsible || null,
+      reason: exit.reason || null,
+      unit_value: Number(exit.unitValue || 0),
+      exit_date: exitDate,
+      notes: exit.notes || null,
+      created_by: session?.user?.id || null,
+    }
+
+    const { data: created, error: insertError } = await supabase.from('exits').insert(payload).select('*').single()
+    if (insertError) throw insertError
+
+    try {
+      await updateProduct(product.id, { stock: product.stock - quantity })
+    } catch (error) {
+      await supabase.from('exits').delete().eq('id', created.id)
+      throw error
+    }
+
+    const mapped = mapExit(created)
+    setExits((prev) => [mapped, ...prev])
+    return mapped
+  }
+
+  const updateProfile = async (nextProfile) => {
+    const user = session?.user
+    if (!user) throw new Error('Faça login para editar o perfil.')
+
+    if (nextProfile.email && nextProfile.email !== user.email) {
+      const { error: authError } = await supabase.auth.updateUser({ email: nextProfile.email })
+      if (authError) throw authError
+    }
+
+    const payload = {
+      user_id: user.id,
+      name: nextProfile.name || null,
+      email: nextProfile.email || user.email || null,
+      phone: nextProfile.phone || null,
+      role: nextProfile.role || 'Gerente de Estoque',
+      updated_at: new Date().toISOString(),
+    }
+    const { data, error } = await supabase.from('profiles').upsert(payload, { onConflict: 'user_id' }).select('*').single()
+    if (error) throw error
+
+    const mapped = {
+      name: data.name || '',
+      email: data.email || user.email || '',
+      phone: data.phone || '',
+      role: data.role || 'Gerente de Estoque',
+      memberSince: data.created_at?.slice(0, 10) || profile.memberSince,
+      status: 'Ativa',
+    }
+    setProfileState(mapped)
+    return mapped
   }
 
   const alerts = useMemo(() => {
@@ -79,7 +393,44 @@ export function InventoryProvider({ children }) {
     }).filter(Boolean)
   }, [products])
 
-  const value = { products, entries, exits, alerts, addProduct, deleteProduct, updateProduct, addEntry, addExit, theme, setTheme }
+  const bestSellers = useMemo(() => {
+    const map = new Map()
+    exits.forEach((exit) => {
+      const key = String(exit.productId)
+      const current = map.get(key) || { productId: exit.productId, name: exit.product, quantity: 0, value: 0 }
+      current.quantity += Number(exit.quantity || 0)
+      current.value += Number(exit.value || 0)
+      map.set(key, current)
+    })
+    return [...map.values()].sort((a, b) => b.quantity - a.quantity)
+  }, [exits])
+
+  const value = {
+    session,
+    authLoading,
+    dataLoading,
+    isAuthenticated: Boolean(session?.user),
+    products,
+    entries,
+    exits,
+    alerts,
+    bestSellers,
+    addProduct,
+    deleteProduct,
+    updateProduct,
+    uploadProductImage,
+    addEntry,
+    addExit,
+    profile,
+    updateProfile,
+    theme,
+    setTheme,
+    signIn,
+    signUp,
+    signOut,
+    refreshAll: () => loadAll(session?.user),
+  }
+
   return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>
 }
 

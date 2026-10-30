@@ -255,3 +255,17 @@
     width: 100%;
   }
 }
+
+.login-form__secondary {
+  width: 100%;
+  border: 1px solid #e7d7c4;
+  background: #fffaf3;
+  color: #6d3f13;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.login-form__secondary:hover { background: #fff2df; }
+.login-form__success { color: #1b7f3a; font-size: .92rem; margin: 0; }
+.login-form__submit:disabled { opacity: .65; cursor: wait; }
